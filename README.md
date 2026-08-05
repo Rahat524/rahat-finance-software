@@ -1,12 +1,27 @@
-# Rahat Corporate Management — Online Production Package
+# Rahat Corporate Finance Management — Online Edition
 
-Upload all files in this folder directly to the root of the GitHub repository.
-No `static` or `templates` folders are required: CSS, JavaScript, and images are embedded in `index.html`.
+This folder is ready for GitHub and Render deployment.
 
-Render deploys automatically from `render.yaml`.
+## Included
+- Flask application (`app.py`)
+- Frontend (`index.html`, `static/`)
+- Initial database and seed files (`data/`)
+- Render deployment configuration (`render.yaml`, `Procfile`)
 
-Default login:
-- Username: Rahat
-- Password: Rahat@0031
+## Deploy on Render
+1. Upload every file and folder in this directory to a private GitHub repository.
+2. In Render, choose **New > Blueprint** and connect the repository.
+3. Render will read `render.yaml` and create the web service.
+4. Open the generated `.onrender.com` URL.
 
-Note: Render free-plan storage is temporary. Download database backups regularly.
+## Login
+Use the same administrator login configured in the application.
+
+## Important data note
+The free Render filesystem is temporary. Download a database backup after important work. For permanent multi-device use, attach persistent storage or migrate the database to PostgreSQL.
+
+## Do not upload
+- `.venv/`
+- `__pycache__/`
+- old ZIP files
+- local temporary files
