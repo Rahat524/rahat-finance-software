@@ -9,7 +9,7 @@ from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 
 BASE = Path(__file__).resolve().parent
-SEED = BASE / "data" / "seed_data.json"
+SEED = BASE / "seed_data.json"
 UPLOADS = BASE / "uploads"
 UPLOADS.mkdir(exist_ok=True)
 
@@ -26,7 +26,7 @@ DB = Path(os.environ.get("DATABASE_PATH", str(APP_DATA / "corporate_scrap.db")))
 DB.parent.mkdir(parents=True, exist_ok=True)
 BACKUP_DIR = Path(os.environ.get("BACKUP_DIR", str(APP_DATA / "Backups")))
 BACKUP_DIR.mkdir(parents=True, exist_ok=True)
-PROJECT_DB = BASE / "data" / "corporate_scrap.db"
+PROJECT_DB = BASE / "corporate_scrap.db"
 
 def _db_record_score(path: Path):
     try:
