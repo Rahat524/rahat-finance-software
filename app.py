@@ -9,24 +9,18 @@ from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 
 BASE = Path(__file__).resolve().parent
-SEED = BASE / "seed_data.json"
+SEED = BASE / "data" / "seed_data.json"
 UPLOADS = BASE / "uploads"
 UPLOADS.mkdir(exist_ok=True)
 
-# Offline mode keeps business data outside the extracted version folder.
-# Online mode uses DATA_DIR supplied by the hosting provider. On a free host,
-# storage may be temporary; use Download Backup regularly.
-ONLINE_MODE = os.environ.get("ONLINE_MODE", "0").lower() in {"1", "true", "yes", "on"}
-if ONLINE_MODE:
-    APP_DATA = Path(os.environ.get("DATA_DIR", str(BASE / "online_data")))
-else:
-    APP_DATA = Path(os.environ.get("LOCALAPPDATA") or (Path.home() / ".rahat_corporate_management")) / "RahatCorporateManagement"
+# Keep business data outside the extracted version folder. Every V6/V7/V8 update
+# therefore uses the same database automatically.
+APP_DATA = Path(os.environ.get("LOCALAPPDATA") or (Path.home() / ".rahat_corporate_management")) / "RahatCorporateManagement"
 APP_DATA.mkdir(parents=True, exist_ok=True)
-DB = Path(os.environ.get("DATABASE_PATH", str(APP_DATA / "corporate_scrap.db")))
-DB.parent.mkdir(parents=True, exist_ok=True)
-BACKUP_DIR = Path(os.environ.get("BACKUP_DIR", str(APP_DATA / "Backups")))
+DB = APP_DATA / "corporate_scrap.db"
+BACKUP_DIR = APP_DATA / "Backups"
 BACKUP_DIR.mkdir(parents=True, exist_ok=True)
-PROJECT_DB = BASE / "corporate_scrap.db"
+PROJECT_DB = BASE / "data" / "corporate_scrap.db"
 
 def _db_record_score(path: Path):
     try:
@@ -1747,13 +1741,10 @@ def restore():
             try: temp_path.unlink()
             except OSError: pass
 
-# Initialize for Gunicorn/online hosting as well as local execution.
-init_db()
-create_automatic_backup()
-
 if __name__=="__main__":
-    port = int(os.environ.get("PORT", "5055"))
-    print(f"Data location: {DB}")
+    init_db()
+    create_automatic_backup()
+    print(f"Permanent data location: {DB}")
     print("\nCorporate Customer + Scrap Vendor Management System")
-    print(f"Open: http://127.0.0.1:{port}")
-    app.run(host="0.0.0.0", port=port, debug=False)
+    print("Computer: http://127.0.0.1:5055")
+    app.run(host="0.0.0.0",port=5055,debug=False)
