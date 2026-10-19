@@ -1741,6 +1741,18 @@ def restore():
             try: temp_path.unlink()
             except OSError: pass
 
+# Excel-layout Head Cash workbook, using the existing login and database.
+from hc_ledger import register_hc_ledger
+register_hc_ledger(app, db, require_permission, audit)
+
+# Older GitHub packages keep these four assets at the repository root.
+def finance_root_asset(filename):
+    return send_from_directory(BASE, filename)
+for _asset in ("app.js", "style.css", "imtiaz-logo.jpg", "imtiaz-building.jpg"):
+    if not (BASE / "static" / _asset).is_file() and (BASE / _asset).is_file():
+        app.add_url_rule("/static/" + _asset, endpoint="finance_root_" + _asset,
+                         view_func=finance_root_asset, defaults={"filename": _asset})
+
 if __name__=="__main__":
     init_db()
     create_automatic_backup()

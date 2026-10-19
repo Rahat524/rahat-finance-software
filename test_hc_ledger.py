@@ -1,0 +1,83 @@
+import io,json,sqlite3,tempfile,unittest
+from pathlib import Path
+from functools import wraps
+from flask import Flask,g,jsonify,session
+from openpyxl import Workbook,load_workbook
+from hc_ledger import register_hc_ledger,calculate,number,import_excel,export_excel,ROOT
+
+def fixture():
+    w=Workbook();s=w.active;s.title="Ledger HC"
+    s["A5"]="Doc. Date";s["F5"]="Receipts";s["B2"]=5700000;s["B3"]="=1000+50"
+    for n,v in enumerate(["2026-10-01","2026-10-01","Opening balance","Receipt","LAHORE BAHRIA - POS","",""],1):s.cell(6,n,v)
+    for n,v in enumerate(["2026-10-02","2026-10-02","1st Collection","Receipt","LAHORE BAHRIA - POS",2000,""],1):s.cell(7,n,v)
+    for n,v in enumerate(["2026-10-02","2026-10-02","Deposit","Payment","DEPOSIT - BANK ALFALAH 40","","=100+20"],1):s.cell(8,n,v)
+    w.create_sheet("Deposit")["A1"]="Preserved deposit tab"
+    out=io.BytesIO();w.save(out);return out.getvalue()
+
+class HCLedgerTests(unittest.TestCase):
+    def setUp(self):
+        self.temp=tempfile.TemporaryDirectory();self.dbpath=Path(self.temp.name)/"test.db"
+        self.app=Flask(__name__);self.app.secret_key="test-session-key"
+        def db():
+            c=sqlite3.connect(self.dbpath);c.row_factory=sqlite3.Row;return c
+        def require_permission(permission):
+            def deco(fn):
+                @wraps(fn)
+                def view(*a,**kw):
+                    if permission not in session.get("permissions",[]):return jsonify(error="Permission denied"),403
+                    return fn(*a,**kw)
+                return view
+            return deco
+        register_hc_ledger(self.app,db,require_permission,lambda *a:None)
+        self.client=self.app.test_client()
+        with self.client.session_transaction() as s:s["permissions"]=["cash_view","cash_import","export_data"]
+        self.raw=fixture()
+    def tearDown(self):self.temp.cleanup()
+    def state(self):return self.client.get("/api/hc-workbook").get_json()
+    def upload(self,revision=0,csrf=None):
+        token=csrf if csrf is not None else self.state()["csrf"]
+        return self.client.post("/api/hc-workbook/import",data={"revision":str(revision),"file":(io.BytesIO(self.raw),"HC.xlsx")},headers={"X-HC-CSRF":token})
+    def test_import_calculate_and_preserve_tabs(self):
+        self.assertEqual(self.upload().status_code,200)
+        state=self.state();self.assertEqual(len(state["rows"]),3)
+        self.assertEqual(state["summary"]["opening"],1050)
+        self.assertEqual(state["summary"]["closing"],2930)
+        self.assertEqual(state["rows"][2][17],2000)
+        self.assertEqual(state["last_rows"],[0,2])
+        response=self.client.get("/api/hc-workbook/export")
+        book=load_workbook(io.BytesIO(response.data));self.assertEqual(book["Deposit"]["A1"].value,"Preserved deposit tab")
+        self.assertEqual(book["Ledger HC"]["G8"].value,120)
+        self.assertTrue(book["Ledger HC"]["H8"].value.startswith("=H7"))
+        self.assertEqual(book["Ledger HC"]["B3"].value,1050)
+    def test_edit_updates_balance_and_rejects_stale_save(self):
+        self.upload();state=self.state()
+        payload={"action":"cell","revision":1,"row":1,"col":5,"value":"2,500"}
+        response=self.client.patch("/api/hc-workbook",json=payload,headers={"X-HC-CSRF":state["csrf"]})
+        self.assertEqual(response.status_code,200)
+        self.assertEqual(self.state()["summary"]["closing"],3430)
+        stale=self.client.patch("/api/hc-workbook",json=payload,headers={"X-HC-CSRF":state["csrf"]})
+        self.assertEqual(stale.status_code,409)
+        self.assertEqual(self.state()["summary"]["closing"],3430)
+    def test_permissions_csrf_and_calculated_cells(self):
+        self.assertEqual(self.upload(csrf="wrong-token").status_code,403)
+        self.upload();state=self.state()
+        response=self.client.patch("/api/hc-workbook",json={"action":"cell","revision":1,"row":1,"col":7,"value":0},headers={"X-HC-CSRF":state["csrf"]})
+        self.assertEqual(response.status_code,400)
+        with self.client.session_transaction() as s:s["permissions"]=["cash_view"]
+        self.assertEqual(self.upload(revision=1).status_code,403)
+        self.assertEqual(self.client.get("/api/hc-workbook/export").status_code,403)
+    def test_last_date_non_contiguous_and_excluded_amounts(self):
+        doc=import_excel(self.raw)
+        doc["rows"].append(["2026-10-03","2026-10-02","Theft","Receipt","THEFT CASH.",50,"","","","","","","","","","","","","",""])
+        x=calculate(doc)
+        self.assertEqual(x["summary"]["running_balance"],2930)
+        self.assertEqual(x["summary"]["closing"],2980)
+        self.assertEqual(x["last_rows"],[0,3])
+    def test_expression_safety_and_invalid_import(self):
+        with self.assertRaises(ValueError):number("__import__('os').system('whoami')")
+        with self.assertRaises(ValueError):number("1/0")
+        with self.assertRaises(ValueError):number(float("nan"))
+        self.assertEqual(number("=20+5*3"),35)
+        self.raw=b"not an excel file";self.assertEqual(self.upload().status_code,400)
+
+if __name__=="__main__":unittest.main()

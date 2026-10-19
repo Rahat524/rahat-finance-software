@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Head Cash Ledger Lahore-4</title><link rel="stylesheet" href="/hc-ledger-assets/hc_ledger.css"></head>
+<body><header class="topbar"><a href="/" class="back">← Finance dashboard</a><strong>HC Ledger · Lahore-4</strong><span id="saveState" role="status">Loading…</span></header>
+<main>
+<div class="toolbar"><label class="button primary">Import Excel<input id="file" type="file" accept=".xlsx" hidden></label><button id="add">+ Add row</button><button id="settings">Opening balance &amp; limit</button><a class="button" href="/api/hc-workbook/export">Download Excel</a><button id="print">Print / PDF</button><button id="full">Full screen</button><button id="refresh">Refresh</button></div>
+<div class="filterbar"><label>Search <input id="search" type="search" placeholder="Description, offset account or amount"></label><label>From <input id="from" type="date"></label><label>To <input id="to" type="date"></label><label class="check"><input id="collections" type="checkbox"> Show hidden collection columns</label><label>Zoom <select id="zoom"><option value="0.8">80%</option><option value="1" selected>100%</option><option value="1.2">120%</option></select></label></div>
+<p id="error" role="alert" hidden></p>
+<section class="sheet" aria-label="Head Cash Ledger"><div class="sheet-title" id="title">IMTIAZ GROUP PVT LTD — HEAD CASH LEDGER LAHORE-4</div>
+<div id="summary" class="summary"></div>
+<div class="grid-wrap" id="gridWrap" tabindex="0" aria-label="Scrollable ledger"><table id="ledger"><colgroup id="colgroup"></colgroup><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
+<div class="sheet-footer"><span class="tab">Ledger HC</span><span id="rowCount"></span><div class="paging"><button id="prev">← Previous</button><span id="page"></span><button id="next">Next →</button></div></div></section>
+<p class="hint">Double-click an input cell to edit. Enter saves; Escape cancels. Calculated cells update automatically. Highlighted rows are the last entries for each posting date.</p>
+<p class="hint">Download Excel keeps the original workbook tabs. Online editing applies to Ledger HC. Other tabs recalculate when opened in Excel.</p>
+</main>
+<dialog id="entryDialog"><form id="entryForm"><div class="dialog-head"><h2>Add ledger row</h2><button type="button" id="closeEntry" aria-label="Close">×</button></div><div class="form-grid" id="entryFields"></div><datalist id="entryOffsets"></datalist><div class="dialog-actions"><button type="button" id="cancelEntry">Cancel</button><button type="submit" class="primary">Save row</button></div><p id="entryError" role="alert"></p></form></dialog>
+<dialog id="settingsDialog"><form id="settingsForm"><h2>Opening balance &amp; limit</h2><label>Opening balance (PKR)<input id="opening" inputmode="decimal" required></label><label>Approved limit (PKR)<input id="limit" inputmode="decimal" required></label><div class="dialog-actions"><button type="button" id="cancelSettings">Cancel</button><button class="primary" type="submit">Save settings</button></div><p id="settingsError" role="alert"></p></form></dialog>
+<datalist id="offsets"></datalist><script src="/hc-ledger-assets/hc_ledger.js"></script></body></html>
