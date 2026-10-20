@@ -27,7 +27,9 @@ def require_permission(permission):
  def decorator(fn):
   @wraps(fn)
   def wrapped(*a,**kw):
-   if not session.get('hc_owner') or session.get('hc_login_version')!=LOGIN_VERSION:return jsonify(error='Login required'),401
+   if not session.get('hc_owner') or session.get('hc_login_version')!=LOGIN_VERSION:
+    if request.path in ('/hc-ledger','/hc-sheets'):return redirect('/')
+    return jsonify(error='Login required'),401
    return fn(*a,**kw)
   return wrapped
  return decorator

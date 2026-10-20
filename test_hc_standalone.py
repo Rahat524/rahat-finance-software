@@ -13,6 +13,8 @@ class StandaloneTests(unittest.TestCase):
     sys.modules.pop('hc_app',None);module=importlib.import_module('hc_app');client=module.app.test_client()
     self.assertEqual(client.get('/').status_code,200)
     self.assertEqual(client.get('/api/hc-workbook').status_code,401)
+    for path in ['/hc-ledger','/hc-sheets?name=Deposit']:
+     page=client.get(path);self.assertEqual(page.status_code,302);self.assertEqual(page.headers['Location'],'/')
     self.assertFalse(client.post('/api/login',json={'username':'test-owner','password':'wrong'}).get_json()['ok'])
     self.assertTrue(client.post('/api/login',json={'username':'test-owner','password':'test-only-password'}).get_json()['ok'])
     self.assertEqual(client.get('/api/me').get_json()['role_name'],'Super Admin')
