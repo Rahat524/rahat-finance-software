@@ -1,35 +1,41 @@
-# HC Ledger — Excel view
+# HC workbook online
 
-Open the existing finance application, sign in, then choose **Cash Management → HC Ledger — Excel View**. The direct path is `/hc-ledger`.
+Sign in to the existing finance app and choose Cash Management > HC Ledger - Excel View, or open /hc-ledger.
 
-1. Click **Import Excel** and choose the original HC Ledger L-4 workbook.
-2. Review the opening balance and totals after import.
-3. Double-click an input cell to edit; Enter saves and Escape cancels. **Add row** appends an entry.
-4. Use the date/search filters, hidden-column toggle, and horizontal scrollbar. All 20 original ledger columns are available.
-5. **Download Excel** exports the complete workbook. **Print / PDF** prints all filtered entries.
+Import the original HC Ledger .xlsx once. The workbook tabs provide:
 
-The original Ledger HC headers, widths, navy title/header, summary fields and last-posting-date highlights are retained. Browser fonts, borders and control spacing can differ from desktop Excel.
+- Ledger HC: all 20 source columns, dependent Payment/Receipt accounts, frequently used accounts first, date/search filters, chronological display, editing, new rows and recoverable deletion. Payment amounts display with a minus sign; underlying values stay positive for cash calculations.
+- Deno HC: note counts (5000, 1000, 500, 100, 75, 50, 20, 10, 5, 2, 1), fake notes and pending amounts. Cash, grand total, linked SAP closing balance and variance update immediately.
+- Deposit: bank-deposit rows from the ledger with editable note counts and counted/deposited differences. Counts stay tied to their ledger entry when its date changes.
+- Salary Details: imported salary records, editable inputs, salary type dropdown, automatic Paid/Un-paid status, separate totals, 50-character narration and duplicate highlighting. A payable entry and its unclaimed counterpart are distinct; only the second identical employee/type/period/amount entry is marked duplicate.
+- DataSheet: editable Payment and Receipt account lists, used by the ledger dropdowns.
 
-## Calculation behavior
+Double-click an input cell or press Enter to edit. Enter saves, Escape cancels. Computed cells are read-only. Add row/entry opens the entry form. Deno HC also has an editable report date. Search and pagination keep larger workbooks responsive. Print / PDF includes all filtered rows.
 
-The first entry represents the opening balance, matching the original workbook. Running balance excludes theft cash, lost & found and Bank Alfalah 66. The top closing balance follows the source workbook's opening + all receipts − all payments. Sale Deposit uses document-date collection/till-closing receipts less PC transfers and returns on Bank Alfalah 40/940 rows. POS Total Sale appears on the last POS entry for each document date. Character Count follows the description text.
+## Calculations
 
-The online page edits **Ledger HC**. It keeps the original other sheets inside the private uploaded workbook and includes them on export. Their Excel formulas recalculate in Excel; online editing of Deno HC and Deposit is not included. This workbook is separate from the application's older Head Cash records.
+The first HC row is reserved for the opening balance. Running balance retains the source exclusions for Theft Cash, Lost & Found and Bank Alfalah 66. Monetary balances and limit comparisons are rounded to two decimal places.
 
-## Data and access
+Daily Sale Deposit is collection/till-closing receipts less HC-to-PC transfers, returns, SALARIES PAYABLE, ADVANCE SALARY PAYABLE and FINAL SETTLEMENT PAYABLE payments on the same document date. A bank entry whose description contains UNCL (including Unclimd) is classified as an unclaimed deposit and has no Sale Deposit value.
 
-No customer transaction file or financial entry is included in this source change. Upload the workbook after deployment while signed in. Records and the original workbook are saved inside the existing application SQLite database, so the application's database backup includes them. The last 10 prior revisions are kept inside the database.
+The top summary separates unclaimed received, deposited and remaining. Remaining Amount includes outstanding Theft/Lost & Found and unclaimed funds; Bank-66 deposits are not deducted twice.
 
-Existing permissions apply: cash_view to view, cash_import to import/edit, export_data to export. Writes use a session CSRF token and revision checks so a stale browser cannot overwrite another user's changes.
+## Export and recovery
 
-The existing Render free-service configuration uses an ephemeral filesystem. A deploy/restart can remove data unless the application data directory is on persistent storage. For permanent multi-device use, configure persistent storage and backups before relying on the service as the only ledger copy. This update does not provision a paid hosting plan.
+Download Excel writes the complete workbook, including linked-sheet edits. Other original sheets and formatting are retained where applicable. Deno HC and Deposit formulas link to the exported ledger; calculated values recalculate in Excel. The online calculations do not depend on Excel being open.
 
-## Deployment
+History / Restore on Ledger HC lists the last 10 prior revisions. Restoring creates a new revision and retains the current state. Import, edits, linked sheets and restore share the same optimistic revision check to prevent stale clients overwriting newer work.
 
-This is a Flask backend, so GitHub stores the source; GitHub Pages cannot run it. Deploy the repository to the existing Python hosting service (the repository already includes Render configuration). No additional Python dependency is required. Import the workbook once the new version is live.
+Existing login and permissions apply: cash_view for reads, cash_import for writes/restore and export_data for downloads. Writes require the session CSRF token. No transaction workbook is included in source control.
 
-The exact ledger route is protected by the existing login. The change also supplies explicit fallback routes for the four existing public UI assets when the source package stores them at repository root instead of static/.
+## Hosting
 
-## Validation
+Gunicorn startup initializes only a missing database schema and does not replace an already initialized database. APP_DATA_DIR can point to an existing persistent data directory; the previous data location remains the default when it is unset. Do not change this variable on an existing installation without migrating its database and backups.
 
-Run `python -m unittest test_hc_ledger.py`. Tests cover source-style workbook import, amount expressions, balances, deposit calculations, saved edits, stale revision rejection, CSRF, access permissions and preservation of other sheets during export.
+Render's existing free configuration has ephemeral storage. Restarts or deployments can remove runtime data unless persistent storage is configured. Use the application's database backup and Excel download; this change does not provision paid storage or migrate production data.
+
+/healthz reports the deployed build marker without disclosing ledger data.
+
+## Verification
+
+Run python -m unittest test_hc_ledger test_hc_completion. Tests cover import/export, calculations, linked sheet edits, salary duplicates/status, expression safety, permissions, CSRF, stale revisions, history restore and Gunicorn startup. Browser code can also be checked with node --check hc_ledger.js and node --check hc_sheets.js.
