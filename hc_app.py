@@ -29,6 +29,10 @@ def expire_idle_session():
   elif not request.path.startswith('/hc-ledger-assets/') and request.path!='/healthz':session['hc_last_activity']=now
 
 def db():
+ url=os.environ.get('HC_DATABASE_URL','').strip()
+ if url:
+  from hc_storage import PostgresHC
+  return PostgresHC(url)
  c=sqlite3.connect(DB,timeout=30);c.row_factory=sqlite3.Row
  c.execute('PRAGMA journal_mode=WAL');return c
 
