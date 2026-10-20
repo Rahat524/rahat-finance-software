@@ -298,6 +298,11 @@ def register_hc_ledger(app, db, require_permission, audit):
                     document=json.loads(record['document']);replacement=record['original'];replace_original=True
                 elif action=='sheet':
                     mutate_sheet(document,payload,number,date_text)
+                elif action=='delete_many':
+                    indices=payload['rows']
+                    if not isinstance(indices,list) or not indices or len(indices)>9995:raise ValueError('Select ledger entries to delete')
+                    if any(type(index)!=int or not 0<index<len(document['rows']) for index in indices):raise ValueError('The opening row cannot be deleted; select valid entries')
+                    for index in set(indices):document['rows'][index]=['']*20
                 elif action=='delete':
                     index=int(payload['row'])
                     if not 0<index<len(document['rows']):raise ValueError('The opening row cannot be deleted')

@@ -89,6 +89,19 @@ class HCLedgerTests(unittest.TestCase):
         response=self.client.patch('/api/hc-workbook',json={'action':'paste','revision':s['revision'],'rows':[rows[1]],'targets':[len(after)],'cols':list(range(7))},headers={'X-HC-CSRF':s['csrf']})
         self.assertEqual(response.status_code,200);self.assertEqual(len(self.state()['rows']),start+3)
 
+    def test_selected_delete_is_atomic_and_recoverable(self):
+        self.upload();s=self.state();headers={'X-HC-CSRF':s['csrf']}
+        def delete(rows,revision):return self.client.patch('/api/hc-workbook',json={'action':'delete_many','rows':rows,'revision':revision},headers=headers)
+        self.assertEqual(delete([1,0],s['revision']).status_code,400)
+        self.assertEqual(self.state()['rows'],s['rows'])
+        self.assertEqual(delete([1,2],s['revision']-1).status_code,409)
+        self.assertEqual(delete([1,2],s['revision']).status_code,200)
+        after=self.state();self.assertEqual(after['rows'][0],s['rows'][0])
+        self.assertEqual(after['rows'][1][:7],['']*7)
+        self.assertEqual(after['summary']['receipts'],0);self.assertEqual(after['summary']['payments'],0)
+        response=self.client.patch('/api/hc-workbook',json={'action':'restore','restore_revision':s['revision'],'revision':after['revision']},headers=headers)
+        self.assertEqual(response.status_code,200);self.assertEqual(self.state()['rows'],s['rows'])
+
     def test_edit_updates_balance_and_rejects_stale_save(self):
         self.upload();state=self.state()
         payload={"action":"cell","revision":1,"row":1,"col":5,"value":"2,500"}

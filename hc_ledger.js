@@ -1,6 +1,7 @@
 "use strict";
 const $=id=>document.getElementById(id);
 let data=null, busy=false, user=null, editor=null, activeCell=null;
+const selectedRows=new Set();
 const editable=new Set([0,1,2,3,4,5,6,9,10,11,12,13,14,15,16]);
 const numeric=new Set([5,6,7,9,10,11,12,13,14,15,16,17,18,19]);
 const money=new Intl.NumberFormat("en-PK",{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -32,7 +33,7 @@ function render(printAll=false){
  $("summary").replaceChildren(...pairs.map(([label,value])=>{const el=document.createElement("div");el.className="summary-item";const a=document.createElement("span"),b=document.createElement("strong");a.textContent=label;b.textContent=money.format(value);el.append(a,b);return el;}));
  const show=$("collections").checked,cols=t.headers.map((_,i)=>i).filter(i=>show||!t.hidden.includes(i));
  $("colgroup").replaceChildren();
- let width=42;const ncol=document.createElement("col");ncol.style.width="42px";$("colgroup").append(ncol);
+ let width=76;const ncol=document.createElement("col");ncol.style.width="76px";$("colgroup").append(ncol);
  cols.forEach(i=>{let c=document.createElement("col");let w=Math.max(t.widths[i],i===8?115:85)*Number($("zoom").value);c.style.width=w+"px";width+=w;$("colgroup").append(c);});
  $("ledger").style.width=width+"px";
  const letters=document.createElement("tr"),heads=document.createElement("tr");letters.className="letters";
@@ -41,10 +42,18 @@ function render(printAll=false){
  $("thead").replaceChildren(letters,heads);
  const all=filtered();
  const visible=all,last=new Set(data.last_rows);
+ if(can('cash_import')&&!printAll){
+  const choices=all.filter(x=>x.index>0),check=document.createElement('input');check.type='checkbox';check.title='Select all visible entries';check.setAttribute('aria-label','Select all visible entries');
+  check.checked=choices.length>0&&choices.every(x=>selectedRows.has(x.index));check.indeterminate=!check.checked&&choices.some(x=>selectedRows.has(x.index));check.disabled=busy||!choices.length;
+  check.onchange=()=>{choices.forEach(x=>check.checked?selectedRows.add(x.index):selectedRows.delete(x.index));render();};numberHead.replaceChildren(check);
+ }
  const frag=document.createDocumentFragment();
  visible.forEach(({row,index})=>{
   const tr=document.createElement("tr");if(last.has(index))tr.className="last-date";
-  const n=document.createElement("td");n.className="row-number";n.textContent=index+6;if(index>0&&can("cash_import")){n.title="Delete this row (previous version kept)";n.ondblclick=async()=>{if(confirm("Delete this ledger entry? Its previous version is kept in history.")){try{await change({action:"delete",row:index});}catch(e){error(e.message);}}};}tr.append(n);
+  const n=document.createElement("td");n.className="row-number";n.textContent=index+6;
+  if(index>0&&can('cash_import')&&!printAll){const check=document.createElement('input');check.type='checkbox';check.checked=selectedRows.has(index);check.disabled=busy;check.setAttribute('aria-label','Select entry '+(index+6));check.onchange=()=>{check.checked?selectedRows.add(index):selectedRows.delete(index);render();};n.prepend(check);}
+  if(selectedRows.has(index))tr.classList.add('selected-entry');
+  if(index>0&&can("cash_import")){n.title="Delete this row (previous version kept)";n.ondblclick=async e=>{if(e.target instanceof HTMLInputElement)return;if(confirm("Delete this ledger entry? Its previous version is kept in history.")){try{await change({action:"delete",row:index});}catch(e){error(e.message);}}};}tr.append(n);
   cols.forEach(col=>{
    const td=document.createElement("td");td.textContent=display(row[col],col);td.dataset.row=index;td.dataset.col=col;td.tabIndex=0;td.addEventListener("focus",()=>{activeCell={index,col};});td.addEventListener("keydown",e=>cellKey(e,index,col));
    if(numeric.has(col))td.classList.add("num");if(col<2)td.classList.add("date");
@@ -68,11 +77,12 @@ function render(printAll=false){
  }
  $("tbody").replaceChildren(frag);
  $("rowCount").textContent=all.length+" of "+data.rows.length+" entries · balances use the complete ledger";
+ $('deleteSelected').textContent='Delete selected ('+selectedRows.size+')';$('deleteSelected').disabled=!can('cash_import')||busy||!selectedRows.size;
  $("file").disabled=!can("cash_import")||busy;$("add").disabled=!can("cash_import")||busy;$("settings").disabled=!can("cash_import")||busy;
 }
 async function load(){
  const top=$("gridWrap").scrollTop,left=$("gridWrap").scrollLeft;
- data=await api("/api/hc-workbook");render();$("gridWrap").scrollTop=top;$("gridWrap").scrollLeft=left;
+ data=await api("/api/hc-workbook");for(const index of selectedRows){if(!data.rows[index]||!data.rows[index].slice(0,7).some(v=>v!==''&&v!==null))selectedRows.delete(index);}render();$("gridWrap").scrollTop=top;$("gridWrap").scrollLeft=left;
  $("saveState").textContent="Saved on server · revision "+data.revision;
 }
 async function change(payload){
@@ -129,7 +139,7 @@ $("file").addEventListener("change",async e=>{
  if(data.rows.length&&!confirm("Replace the online HC Ledger with this Excel file? The current version will be kept in database history.")){e.target.value="";return;}
  const form=new FormData();form.append("file",file);form.append("revision",data.revision);
  busy=true;$("saveState").textContent="Importing Excel…";render();
- try{await api("/api/hc-workbook/import",{method:"POST",body:form});await load();error("");}
+ try{await api("/api/hc-workbook/import",{method:"POST",body:form});selectedRows.clear();await load();error("");}
  catch(err){error(err.message);$("saveState").textContent="Import failed";}
  finally{busy=false;e.target.value="";render();}
 });
@@ -187,3 +197,9 @@ $('ledger').addEventListener('paste',async e=>{
  if(editor){editor.cancelEdit();}await change({action:'paste',rows,cols,targets});focusCell(appending?data.rows.length:index,col);
  }catch(err){error(err.message);}
 });
+
+$('deleteSelected').onclick=async()=>{
+ if(busy||!selectedRows.size)return;
+ const rows=[...selectedRows];if(!confirm('Delete '+rows.length+' selected entries? The previous revision will be kept in History.'))return;
+ try{await change({action:'delete_many',rows});selectedRows.clear();activeCell=null;render();}catch(e){error(e.message);}
+};
