@@ -242,7 +242,7 @@ def register_hc_ledger(app, db, require_permission, audit):
     @bp.get("/hc-ledger-assets/<path:filename>")
     @require_permission("cash_view")
     def asset(filename):
-        if filename not in ("hc_ledger.js","hc_ledger.css","hc_sheets.js"):return "",404
+        if filename not in ("hc_ledger.js","hc_ledger.css","hc_sheets.js","hc_session.js"):return "",404
         return send_from_directory(ROOT,filename)
     @bp.get('/hc-sheets')
     @require_permission('cash_view')

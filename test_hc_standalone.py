@@ -1,6 +1,7 @@
 import io,os,sys,tempfile,importlib,unittest,hashlib
 from pathlib import Path
 from unittest.mock import patch
+from types import SimpleNamespace
 from openpyxl import load_workbook
 from test_hc_ledger import fixture
 
@@ -30,6 +31,17 @@ class StandaloneTests(unittest.TestCase):
     c=module.db();tables={r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table'")};c.close()
     self.assertIn('hc_workbook',tables);self.assertNotIn('customer_ledger',tables);self.assertNotIn('vendor_ledger',tables)
     self.assertEqual(Path(module.DB).parent.resolve(),Path(tmp).resolve())
+    for path in ['/hc-ledger','/hc-sheets?name=Deposit']:
+     response=client.get(path);self.assertIn(b'id="logout"',response.data);self.assertIn(b'hc_session.js',response.data);response.close()
+    self.assertEqual(client.get('/hc-ledger-assets/hc_session.js').status_code,200)
+    with client.session_transaction() as sess:sess['hc_last_activity']=1000
+    with patch.object(module,'time',SimpleNamespace(time=lambda:1299)):
+     self.assertEqual(client.post('/api/hc-session/activity').status_code,200)
+    with client.session_transaction() as sess:self.assertEqual(sess['hc_last_activity'],1299)
+    with patch.object(module,'time',SimpleNamespace(time=lambda:1599)):
+     self.assertEqual(client.get('/api/me').status_code,401)
+     self.assertEqual(client.get('/hc-ledger').headers['Location'],'/')
+    self.assertTrue(client.post('/api/login',json={'username':'test-owner','password':'test-only-password'}).get_json()['ok'])
     client.post('/api/logout');self.assertEqual(client.get('/api/hc-workbook').status_code,401)
   if before is not None:self.assertEqual(hashlib.sha256(old.read_bytes()).digest(),before)
 
