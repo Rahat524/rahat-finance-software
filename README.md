@@ -1,27 +1,9 @@
-# Rahat Corporate Finance Management — Online Edition
+# HC Ledger - Lahore-4
 
-This folder is ready for GitHub and Render deployment.
+[Deploy HC software to Render](https://render.com/deploy?repo=https://github.com/Rahat524/rahat-finance-software/tree/standalone-hc-service)
 
-## Included
-- Flask application (`app.py`)
-- Frontend (`index.html`, `static/`)
-- Initial database and seed files (`data/`)
-- Render deployment configuration (`render.yaml`, `Procfile`)
+This branch creates only a separate HC service. It does not open the corporate software database. Click the deployment link, enter your own HC_PASSWORD on Render and deploy. The username is Rahat. Build/start settings are preconfigured. The service is on Render's free plan; its local database is ephemeral, so download Excel regularly or configure persistent storage before relying on it as the sole ledger copy.
 
-## Deploy on Render
-1. Upload every file and folder in this directory to a private GitHub repository.
-2. In Render, choose **New > Blueprint** and connect the repository.
-3. Render will read `render.yaml` and create the web service.
-4. Open the generated `.onrender.com` URL.
+Features: Ledger HC, Deno HC, Deposit, Salary Details, DataSheet, linked totals, salary duplicate detection, original-design Excel import/export and history restore.
 
-## Login
-Use the same administrator login configured in the application.
-
-## Important data note
-The free Render filesystem is temporary. Download a database backup after important work. For permanent multi-device use, attach persistent storage or migrate the database to PostgreSQL.
-
-## Do not upload
-- `.venv/`
-- `__pycache__/`
-- old ZIP files
-- local temporary files
+25 automated tests pass. Full details are in HC_LEDGER_ONLINE.md.
