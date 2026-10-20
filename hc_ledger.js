@@ -55,6 +55,17 @@ function render(printAll=false){
   });frag.append(tr);
  });
  if(!visible.length){const tr=document.createElement("tr"),td=document.createElement("td");td.colSpan=cols.length+1;td.className="empty";td.textContent=data.rows.length?"No entries match these filters.":"Import your HC Ledger Excel file to load the original entries, opening balance and offset accounts.";tr.append(td);frag.append(tr);}
+ if(can('cash_import')&&!printAll){
+  const tr=document.createElement('tr');tr.className='append-row';
+  const label=document.createElement('td');label.className='row-number';label.textContent='+';tr.append(label);
+  cols.forEach(col=>{
+   const td=document.createElement('td');td.dataset.row=data.rows.length;td.dataset.col=col;td.tabIndex=0;
+   if(editable.has(col)){td.className='editable';td.title='Paste Excel rows here to add new entries';td.ondblclick=entry;}
+   else td.className='computed';
+   td.addEventListener('focus',()=>{activeCell={index:data.rows.length,col};});
+   td.addEventListener('keydown',e=>cellKey(e,data.rows.length,col));tr.append(td);
+  });frag.append(tr);
+ }
  $("tbody").replaceChildren(frag);
  $("rowCount").textContent=all.length+" of "+data.rows.length+" entries · balances use the complete ledger";
  $("file").disabled=!can("cash_import")||busy;$("add").disabled=!can("cash_import")||busy;$("settings").disabled=!can("cash_import")||busy;
@@ -138,11 +149,11 @@ window.addEventListener("afterprint",()=>render());
 
 function visibleColumns(){return data.template.headers.map((_,i)=>i).filter(i=>$('collections').checked||!data.template.hidden.includes(i));}
 function focusCell(index,col){
- const all=filtered(),pos=all.findIndex(x=>x.index===index);if(pos<0)return;
+ const all=filtered(),pos=all.findIndex(x=>x.index===index);if(pos<0&&index!==data.rows.length)return;
  const td=$('tbody').querySelector('[data-row="'+index+'"][data-col="'+col+'"]');if(td){td.focus({preventScroll:true});td.scrollIntoView({block:'nearest',inline:'nearest'});}
 }
 function navigate(index,col,dy,dx){
- const all=filtered(),cols=visibleColumns();let r=all.findIndex(x=>x.index===index)+dy,c=cols.indexOf(col)+dx;
+ const all=[...filtered(),...(can('cash_import')?[{index:data.rows.length}]:[])],cols=visibleColumns();let r=all.findIndex(x=>x.index===index)+dy,c=cols.indexOf(col)+dx;
  if(c>=cols.length){c=0;r++;}if(c<0){c=cols.length-1;r--;}
  if(r>=0&&r<all.length)focusCell(all[r].index,cols[c]);
 }
@@ -150,7 +161,7 @@ function cellKey(e,index,col){
  if(editor||busy)return;
  const moves={ArrowLeft:[0,-1],ArrowRight:[0,1],ArrowUp:[-1,0],ArrowDown:[1,0],Tab:[0,e.shiftKey?-1:1],Enter:[e.shiftKey?-1:1,0]};
  if(moves[e.key]){e.preventDefault();navigate(index,col,...moves[e.key]);}
- else if(e.key==='F2'&&editable.has(col)&&can('cash_import')){e.preventDefault();edit(e.currentTarget,index,col);}
+ else if(e.key==='F2'&&editable.has(col)&&can('cash_import')){e.preventDefault();if(index===data.rows.length)entry();else edit(e.currentTarget,index,col);}
 }
 function clipboardRows(text){
  const rows=[[]];let value='',quoted=false;
@@ -165,13 +176,14 @@ $('ledger').addEventListener('paste',async e=>{
  e.preventDefault();e.stopPropagation();
  try{
  let rows=clipboardRows(text);if(!rows.length)return;
- let {index,col}=activeCell;
+ let {index,col}=activeCell;const appending=index===data.rows.length;
  // A copied row-number column is a label, never ledger data.
  if(col===0&&rows.every(r=>r.length>=8&&/^\d+$/.test(r[0].trim())&&/[-/]/.test(r[1])))rows=rows.map(r=>r.slice(1));
  const width=rows[0].length;if(rows.some(r=>r.length!==width))throw Error('Each pasted row must have the same columns');
  const cols=Array.from({length:width},(_,n)=>col+n);if(cols.at(-1)>19)throw Error('Pasted data extends beyond the last column');
  const all=filtered(),start=all.findIndex(x=>x.index===index);let append=data.rows.length;
- const targets=rows.map((_,i)=>all[start+i]?.index??append++);
- if(editor){editor.cancelEdit();}await change({action:'paste',rows,cols,targets});focusCell(index,col);
+ if(start<0&&index!==data.rows.length)throw Error('Select a ledger cell before pasting');
+ const targets=rows.map((_,i)=>index===data.rows.length?append++:(all[start+i]?.index??append++));
+ if(editor){editor.cancelEdit();}await change({action:'paste',rows,cols,targets});focusCell(appending?data.rows.length:index,col);
  }catch(err){error(err.message);}
 });

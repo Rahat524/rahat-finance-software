@@ -6,3 +6,5 @@
 #ledger td[data-col]:focus{outline:2px solid #217346;outline-offset:-2px;}
 
 .topbar #logout{flex-shrink:0;margin-left:0;background:transparent;color:white;border-color:#ffffff88;} .topbar #logout:hover{background:#ffffff22;}
+
+#ledger .append-row td{height:30px;background:#edf8f0;border-top:2px solid #217346;}

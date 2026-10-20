@@ -78,6 +78,17 @@ class HCLedgerTests(unittest.TestCase):
         self.assertEqual(paste([[30]],[1],[5],revision-1).status_code,409)
         self.assertEqual(paste([[1]],[0],[5]).status_code,400)
 
+    def test_paste_at_end_appends_without_replacing_old_rows(self):
+        self.upload();s=self.state();before=s['rows'];start=len(before)
+        rows=[['10-Aug-26','11-Aug-26','New collection','Receipt','',2991000,''],['11-Aug-26','12-Aug-26','Next collection','Receipt','',100,'']]
+        response=self.client.patch('/api/hc-workbook',json={'action':'paste','revision':s['revision'],'rows':rows,'targets':[start,start+1],'cols':list(range(7))},headers={'X-HC-CSRF':s['csrf']})
+        self.assertEqual(response.status_code,200,response.get_json())
+        after=self.state()['rows'];self.assertEqual(after[:start],before)
+        self.assertEqual(len(after),start+2);self.assertEqual(after[start][5],2991000)
+        s=self.state()
+        response=self.client.patch('/api/hc-workbook',json={'action':'paste','revision':s['revision'],'rows':[rows[1]],'targets':[len(after)],'cols':list(range(7))},headers={'X-HC-CSRF':s['csrf']})
+        self.assertEqual(response.status_code,200);self.assertEqual(len(self.state()['rows']),start+3)
+
     def test_edit_updates_balance_and_rejects_stale_save(self):
         self.upload();state=self.state()
         payload={"action":"cell","revision":1,"row":1,"col":5,"value":"2,500"}
