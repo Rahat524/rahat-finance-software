@@ -53,7 +53,7 @@ function render(printAll=false){
   const n=document.createElement("td");n.className="row-number";n.textContent=index+6;
   if(index>0&&can('cash_import')&&!printAll){const check=document.createElement('input');check.type='checkbox';check.checked=selectedRows.has(index);check.disabled=busy;check.setAttribute('aria-label','Select entry '+(index+6));check.onchange=()=>{check.checked?selectedRows.add(index):selectedRows.delete(index);render();};n.prepend(check);}
   if(selectedRows.has(index))tr.classList.add('selected-entry');
-  if(index>0&&can("cash_import")){n.title="Delete this row (previous version kept)";n.ondblclick=async e=>{if(e.target instanceof HTMLInputElement)return;if(confirm("Delete this ledger entry? Its previous version is kept in history.")){try{await change({action:"delete",row:index});}catch(e){error(e.message);}}};}tr.append(n);
+  if(index>0&&can('cash_import')){n.title='Double-click to delete selected entries';n.ondblclick=e=>{if(e.target instanceof HTMLInputElement)return;deleteEntries(index);};}tr.append(n);
   cols.forEach(col=>{
    const td=document.createElement("td");td.textContent=display(row[col],col);td.dataset.row=index;td.dataset.col=col;td.tabIndex=0;td.addEventListener("focus",()=>{activeCell={index,col};});td.addEventListener("keydown",e=>cellKey(e,index,col));
    if(numeric.has(col))td.classList.add("num");if(col<2)td.classList.add("date");
@@ -198,8 +198,14 @@ $('ledger').addEventListener('paste',async e=>{
  }catch(err){error(err.message);}
 });
 
-$('deleteSelected').onclick=async()=>{
- if(busy||!selectedRows.size)return;
- const rows=[...selectedRows];if(!confirm('Delete '+rows.length+' selected entries? The previous revision will be kept in History.'))return;
+async function deleteEntries(fallback=null){
+ if(busy||!can('cash_import'))return;
+ const rows=selectedRows.size?[...selectedRows]:(fallback>0?[fallback]:[]);
+ if(!rows.length)return;
+ if(!confirm('Delete ALL '+rows.length+' selected entries? The previous revision will be kept in History.'))return;
  try{await change({action:'delete_many',rows});selectedRows.clear();activeCell=null;render();}catch(e){error(e.message);}
-};
+}
+$('deleteSelected').onclick=()=>deleteEntries();
+$('ledger').addEventListener('keydown',e=>{
+ if(e.key==='Delete'&&!editor&&selectedRows.size){e.preventDefault();deleteEntries();}
+});
