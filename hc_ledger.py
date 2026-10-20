@@ -172,7 +172,7 @@ def export_excel(document, original, template):
             cell=sheet.cell(r,col+1);cell.value=value if value!="" else None
             if isinstance(value,str): cell.data_type="s"
             if col in (0,1) and (not original or r>old_end):cell.number_format="dd-mmm-yy"
-        sheet.cell(r,8,"=ROUND($B$3,2)" if index==0 else f'=ROUND(H{r-1}+IF(OR(COUNTIF(E{r},"*THEFT CASH*")>0,COUNTIF(E{r},"*LOST & FOUND*")>0,COUNTIF(E{r},"*DEPOSIT - BANK ALFALAH 66*")>0),0,F{r}-G{r}),2)')
+        sheet.cell(r,8,"=ROUND($B$3,2)" if index==0 else f'=ROUND(SUM(H{r-1})+IF(OR(COUNTIF(E{r},"*THEFT CASH*")>0,COUNTIF(E{r},"*LOST & FOUND*")>0,COUNTIF(E{r},"*DEPOSIT - BANK ALFALAH 66*")>0),0,SUM(F{r})-SUM(G{r})),2)')
         sheet.cell(r,9,f'=IF(ROUND(H{r},2)>ROUND($B$2,2),"Limit Exceed",IF(ROUND(H{r},2)=ROUND($B$2,2),"Limit Match","Below Limit"))')
         sheet.cell(r,18,f'=IF(AND(OR(E{r}="DEPOSIT - BANK ALFALAH 40",E{r}="DEPOSIT - BANK ALFALAH 940"),COUNTIF(C{r},"*UNCL*")=0),SUMIFS(F6:F{end},A6:A{end},A{r},C6:C{end},"*Collection*")+SUMIFS(F6:F{end},A6:A{end},A{r},C6:C{end},"*Till Closing*")-SUMIFS(G6:G{end},A6:A{end},A{r},E6:E{end},"*CASH TRNSFR H.C TO P.C*")-SUMIFS(G6:G{end},A6:A{end},A{r},E6:E{end},"*RETURN POS*")-SUMIFS(G6:G{end},A6:A{end},A{r},E6:E{end},"SALARIES PAYABLE")-SUMIFS(G6:G{end},A6:A{end},A{r},E6:E{end},"ADVANCE SALARY PAYABLE")-SUMIFS(G6:G{end},A6:A{end},A{r},E6:E{end},"FINAL SETTLEMENT PAYABLE"),"")')
         sheet.cell(r,19,f'=IF(AND(ISNUMBER(A{r}),E{r}="LAHORE BAHRIA - POS"),IF(COUNTIFS(A{r+1}:A{end+1},A{r},E{r+1}:E{end+1},"LAHORE BAHRIA - POS")=0,SUMIFS(F6:F{end},A6:A{end},A{r},E6:E{end},"LAHORE BAHRIA - POS"),""),"")')

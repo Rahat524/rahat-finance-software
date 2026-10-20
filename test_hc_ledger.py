@@ -47,8 +47,21 @@ class HCLedgerTests(unittest.TestCase):
         response=self.client.get("/api/hc-workbook/export")
         book=load_workbook(io.BytesIO(response.data));self.assertEqual(book["Deposit"]["A1"].value,"Preserved deposit tab")
         self.assertEqual(book["Ledger HC"]["G8"].value,120)
-        self.assertTrue(book["Ledger HC"]["H8"].value.startswith("=ROUND(H7"))
+        self.assertTrue(book["Ledger HC"]["H8"].value.startswith("=ROUND(SUM(H7)"))
         self.assertEqual(book["Ledger HC"]["B3"].value,1050)
+    def test_export_balance_ignores_empty_amount_text(self):
+        self.upload()
+        book=load_workbook(io.BytesIO(self.client.get('/api/hc-workbook/export').data))
+        sheet=book['Ledger HC']
+        # Excel subtraction of empty inline strings produces #VALUE!.
+        # SUM handles both blank cells and numeric amounts without masking errors.
+        self.assertIn('SUM(F7)-SUM(G7)',sheet['H7'].value)
+        self.assertIn('SUM(F8)-SUM(G8)',sheet['H8'].value)
+        self.assertIn('SUM(H7)',sheet['H8'].value)
+        self.assertIn('ROUND(H8,2)',sheet['I8'].value)
+        self.assertEqual(sheet['F7'].value,2000)
+        self.assertEqual(sheet['G8'].value,120)
+
     def test_edit_updates_balance_and_rejects_stale_save(self):
         self.upload();state=self.state()
         payload={"action":"cell","revision":1,"row":1,"col":5,"value":"2,500"}
