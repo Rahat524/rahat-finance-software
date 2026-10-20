@@ -9,8 +9,6 @@
 <div id="summary" class="summary"></div>
 <div class="grid-wrap" id="gridWrap" tabindex="0" aria-label="Scrollable ledger"><table id="ledger"><colgroup id="colgroup"></colgroup><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
 <div class="sheet-footer"><span class="tab">Ledger HC</span><span id="rowCount"></span><div class="paging"><button id="prev">← Previous</button><span id="page"></span><button id="next">Next →</button></div></div></section>
-<p class="hint">Double-click an input cell to edit. Enter saves; Escape cancels. Calculated cells update automatically. Highlighted rows are the last entries for each posting date.</p>
-<p class="hint">Use the workbook tabs above for denominations, deposits, salaries and offset accounts. Double-click a row number to delete an entry; the prior revision is retained.</p>
 </main>
 <dialog id="entryDialog"><form id="entryForm"><div class="dialog-head"><h2>Add ledger row</h2><button type="button" id="closeEntry" aria-label="Close">×</button></div><div class="form-grid" id="entryFields"></div><datalist id="entryOffsets"></datalist><div class="dialog-actions"><button type="button" id="cancelEntry">Cancel</button><button type="submit" class="primary">Save row</button></div><p id="entryError" role="alert"></p></form></dialog>
 <dialog id="settingsDialog"><form id="settingsForm"><h2>Opening balance &amp; limit</h2><label>Opening balance (PKR)<input id="opening" inputmode="decimal" required></label><label>Approved limit (PKR)<input id="limit" inputmode="decimal" required></label><div class="dialog-actions"><button type="button" id="cancelSettings">Cancel</button><button class="primary" type="submit">Save settings</button></div><p id="settingsError" role="alert"></p></form></dialog>
