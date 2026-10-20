@@ -15,7 +15,7 @@ UPLOADS.mkdir(exist_ok=True)
 
 # Keep business data outside the extracted version folder. Every V6/V7/V8 update
 # therefore uses the same database automatically.
-APP_DATA = Path(os.environ.get("LOCALAPPDATA") or (Path.home() / ".rahat_corporate_management")) / "RahatCorporateManagement"
+APP_DATA = Path(os.environ["APP_DATA_DIR"]) if os.environ.get("APP_DATA_DIR") else Path(os.environ.get("LOCALAPPDATA") or (Path.home() / ".rahat_corporate_management")) / "RahatCorporateManagement"
 APP_DATA.mkdir(parents=True, exist_ok=True)
 DB = APP_DATA / "corporate_scrap.db"
 BACKUP_DIR = APP_DATA / "Backups"
@@ -221,8 +221,9 @@ def seed_cashier_closing_from_excel(cur):
     if batch: cur.executemany(sql,batch)
     wb.close()
 
-def init_db():
-    discover_and_migrate_legacy_database()
+def init_db(migrate_legacy=True):
+    if migrate_legacy:
+        discover_and_migrate_legacy_database()
     conn = db()
     cur = conn.cursor()
     cur.executescript("""
@@ -487,7 +488,7 @@ def home():
 
 @app.before_request
 def load_current_user():
-    if request.path.startswith("/static/") or request.path in ("/", "/api/login"):
+    if request.path.startswith("/static/") or request.path in ("/", "/api/login", "/healthz"):
         return None
     uid=session.get("user_id")
     if not uid:
@@ -1741,6 +1742,10 @@ def restore():
             try: temp_path.unlink()
             except OSError: pass
 
+@app.get("/healthz")
+def healthz():
+    return jsonify(status="ok",build="hc-workbook-2026-10-21")
+
 # Excel-layout Head Cash workbook, using the existing login and database.
 from hc_ledger import register_hc_ledger
 register_hc_ledger(app, db, require_permission, audit)
@@ -1752,6 +1757,36 @@ for _asset in ("app.js", "style.css", "imtiaz-logo.jpg", "imtiaz-building.jpg"):
     if not (BASE / "static" / _asset).is_file() and (BASE / _asset).is_file():
         app.add_url_rule("/static/" + _asset, endpoint="finance_root_" + _asset,
                          view_func=finance_root_asset, defaults={"filename": _asset})
+
+def initialize_hosted_database():
+    """Gunicorn imports app:app without executing the desktop __main__ block."""
+    connection = db()
+    try:
+        has_users = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='users'"
+        ).fetchone()
+        has_business_tables = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='customer_ledger'"
+        ).fetchone()
+    finally:
+        connection.close()
+    if has_users and has_business_tables:
+        return
+    # Only initialize a missing schema. Do not rerun legacy migrations on each request.
+    # The older GitHub package stores its initial database at repository root.
+    packaged = BASE / "corporate_scrap.db"
+    if not has_users and not has_business_tables and packaged.is_file():
+        source = sqlite3.connect(packaged)
+        target = db()
+        try:
+            source.backup(target)
+        finally:
+            source.close()
+            target.close()
+    init_db(migrate_legacy=False)
+
+if __name__ != "__main__":
+    initialize_hosted_database()
 
 if __name__=="__main__":
     init_db()

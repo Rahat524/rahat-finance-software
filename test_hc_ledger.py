@@ -16,7 +16,7 @@ def fixture():
 
 class HCLedgerTests(unittest.TestCase):
     def setUp(self):
-        self.temp=tempfile.TemporaryDirectory();self.dbpath=Path(self.temp.name)/"test.db"
+        self.temp=tempfile.TemporaryDirectory(dir=ROOT);self.dbpath=Path(self.temp.name)/"test.db"
         self.app=Flask(__name__);self.app.secret_key="test-session-key"
         def db():
             c=sqlite3.connect(self.dbpath);c.row_factory=sqlite3.Row;return c
@@ -47,7 +47,7 @@ class HCLedgerTests(unittest.TestCase):
         response=self.client.get("/api/hc-workbook/export")
         book=load_workbook(io.BytesIO(response.data));self.assertEqual(book["Deposit"]["A1"].value,"Preserved deposit tab")
         self.assertEqual(book["Ledger HC"]["G8"].value,120)
-        self.assertTrue(book["Ledger HC"]["H8"].value.startswith("=H7"))
+        self.assertTrue(book["Ledger HC"]["H8"].value.startswith("=ROUND(H7"))
         self.assertEqual(book["Ledger HC"]["B3"].value,1050)
     def test_edit_updates_balance_and_rejects_stale_save(self):
         self.upload();state=self.state()
@@ -79,5 +79,31 @@ class HCLedgerTests(unittest.TestCase):
         with self.assertRaises(ValueError):number(float("nan"))
         self.assertEqual(number("=20+5*3"),35)
         self.raw=b"not an excel file";self.assertEqual(self.upload().status_code,400)
+
+
+class HostedStartupTests(unittest.TestCase):
+    def test_gunicorn_import_initializes_missing_schema_and_preserves_database(self):
+        import os,subprocess,sys
+        with tempfile.TemporaryDirectory(dir=ROOT) as temp:
+            script = """
+import os,sys,sqlite3
+from pathlib import Path
+os.environ['LOCALAPPDATA']=sys.argv[1]
+sys.path.insert(0,sys.argv[2])
+import app
+client=app.app.test_client()
+response=client.post('/api/login',json={'username':'__deployment_check__','password':''})
+assert response.status_code==200 and response.get_json()['ok'] is False
+c=app.db()
+c.execute('CREATE TABLE startup_sentinel(value TEXT)')
+c.execute("INSERT INTO startup_sentinel VALUES('preserve')")
+c.commit();c.close()
+app.initialize_hosted_database()
+c=app.db();assert c.execute('SELECT value FROM startup_sentinel').fetchone()[0]=='preserve';c.close()
+"""
+            env=os.environ.copy()
+            env["PYTHONPATH"]=os.pathsep.join(sys.path)
+            result=subprocess.run([sys.executable,"-c",script,temp,str(ROOT)],env=env,capture_output=True,text=True)
+            self.assertEqual(result.returncode,0,result.stderr)
 
 if __name__=="__main__":unittest.main()

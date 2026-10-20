@@ -15,19 +15,20 @@ async function api(url,options={}){
 function display(value,col){
  if(value===""||value===null||value===undefined)return "";
  if(col===0||col===1){const [y,m,d]=value.split("-");return d+"-"+["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+m-1]+"-"+y.slice(-2);}
+ if(col===6&&typeof value==="number")return value===0?money.format(0):"-"+money.format(Math.abs(value));
  if(numeric.has(col)&&typeof value==="number")return col===19?String(value):money.format(value);
  return String(value);
 }
 function filtered(){
  const q=$("search").value.trim().toLowerCase(),from=$("from").value,to=$("to").value;
- return data.rows.map((row,index)=>({row,index})).filter(({row})=>(!q||row.some(v=>String(v).toLowerCase().includes(q)))&&(!from||row[1]>=from)&&(!to||row[1]<=to));
+ return data.rows.map((row,index)=>({row,index})).filter(({row})=>row.slice(0,7).some(v=>v!==""&&v!==null)&&(!q||row.some(v=>String(v).toLowerCase().includes(q)))&&(!from||row[1]>=from)&&(!to||row[1]<=to)).sort((a,b)=>(a.row[1]||a.row[0]||"").localeCompare(b.row[1]||b.row[0]||"")||a.index-b.index);
 }
 function render(printAll=false){
  if(!data)return;
  const t=data.template;
  document.documentElement.style.setProperty("--last",t.last_row_color); document.documentElement.style.setProperty("--last-text",t.last_row_text||"#fff");
  $("title").textContent=t.title;
- const pairs=[["Approved Limit",data.summary.limit],["Total Receipts",data.summary.receipts],["Total Payments",data.summary.payments],["Opening Balance",data.summary.opening],["Theft Cash",data.summary.theft],["LOST & FOUND.",data.summary.lost],["Closing Balance",data.summary.closing],["Deposit - Alfalah 66",data.summary.alfalah66],["Remaining Amount",data.summary.remaining]];
+ const pairs=[["Approved Limit",data.summary.limit],["Total Receipts",data.summary.receipts],["Total Payments",data.summary.payments],["Opening Balance",data.summary.opening],["Theft Cash",data.summary.theft],["LOST & FOUND.",data.summary.lost],["Closing Balance",data.summary.closing],["Deposit - Alfalah 66",data.summary.alfalah66],["Remaining Amount",data.summary.remaining],["Unclaimed Salary Received",data.summary.unclaimed_received],["Unclaimed Salary Deposited",data.summary.unclaimed_deposited],["Unclaimed Salary Remaining",data.summary.unclaimed_remaining]];
  $("summary").replaceChildren(...pairs.map(([label,value])=>{const el=document.createElement("div");el.className="summary-item";const a=document.createElement("span"),b=document.createElement("strong");a.textContent=label;b.textContent=money.format(value);el.append(a,b);return el;}));
  const show=$("collections").checked,cols=t.headers.map((_,i)=>i).filter(i=>show||!t.hidden.includes(i));
  $("colgroup").replaceChildren();
@@ -43,7 +44,7 @@ function render(printAll=false){
  const frag=document.createDocumentFragment();
  visible.forEach(({row,index})=>{
   const tr=document.createElement("tr");if(last.has(index))tr.className="last-date";
-  const n=document.createElement("td");n.className="row-number";n.textContent=index+6;tr.append(n);
+  const n=document.createElement("td");n.className="row-number";n.textContent=index+6;if(index>0&&can("cash_import")){n.title="Delete this row (previous version kept)";n.ondblclick=async()=>{if(confirm("Delete this ledger entry? Its previous version is kept in history.")){try{await change({action:"delete",row:index});}catch(e){error(e.message);}}};}tr.append(n);
   cols.forEach(col=>{
    const td=document.createElement("td");td.textContent=display(row[col],col);td.dataset.row=index;td.dataset.col=col;td.tabIndex=0;
    if(numeric.has(col))td.classList.add("num");if(col<2)td.classList.add("date");
@@ -123,6 +124,7 @@ $("file").addEventListener("change",async e=>{
  catch(err){error(err.message);$("saveState").textContent="Import failed";}
  finally{busy=false;e.target.value="";render();}
 });
+$("history").onclick=async()=>{try{const h=await api('/api/hc-workbook/history');if(!h.entries.length){alert('No previous revisions yet.');return;}const choice=prompt('Available revisions:\n'+h.entries.map(r=>r.revision+' - '+r.created_at).join('\n')+'\nEnter the revision number to restore:');if(choice===null)return;const revision=Number(choice);if(!h.entries.some(r=>r.revision===revision))throw Error('Choose a listed revision');if(confirm('Restore revision '+revision+'? The current version will also be kept.'))await change({action:'restore',restore_revision:revision});}catch(e){error(e.message);}};
 $("add").onclick=entry;
 $("settings").onclick=()=>{$("opening").value=data.opening;$("limit").value=data.limit;$("settingsError").textContent="";$("settingsDialog").showModal();};
 $("cancelSettings").onclick=()=>$("settingsDialog").close();
