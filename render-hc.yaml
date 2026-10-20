@@ -1,0 +1,18 @@
+# Deploy this blueprint as a NEW service; do not replace the existing finance service.
+services:
+  - type: web
+    name: rahat-hc-ledger
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --workers 1 --threads 4 --timeout 180 --bind 0.0.0.0:$PORT hc_app:app
+    healthCheckPath: /healthz
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.13.5"
+      - key: HC_USERNAME
+        value: Rahat
+      - key: HC_PASSWORD
+        generateValue: true
+      - key: APP_SECRET_KEY
+        generateValue: true

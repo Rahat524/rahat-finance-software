@@ -39,3 +39,7 @@ Render's existing free configuration has ephemeral storage. Restarts or deployme
 ## Verification
 
 Run python -m unittest test_hc_ledger test_hc_completion. Tests cover import/export, calculations, linked sheet edits, salary duplicates/status, expression safety, permissions, CSRF, stale revisions, history restore and Gunicorn startup. Browser code can also be checked with node --check hc_ledger.js and node --check hc_sheets.js.
+
+## Separate HC deployment
+
+Use render-hc.yaml as a new Render service with hc_app:app. This standalone app never imports app.py and never opens the existing corporate_scrap.db or its data directory. It uses only its own HC_DATA_DIR/hc_workbook.db. Set HC_USERNAME and HC_PASSWORD through service environment variables; no password is stored in source. The existing Render service and render.yaml remain unchanged. The free service still needs persistent storage or regular Excel exports to survive future restarts.

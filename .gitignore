@@ -1,3 +1,7 @@
 .venv/
 cloudflare_token.txt
 uploads/
+
+.hc-data/
+__pycache__/
+*.pyc
