@@ -2,3 +2,5 @@
 .last-date td{color:var(--last-text,#fff)}tr.last-date td.computed{color:var(--last-text,#fff)}tr.last-date .limit-exceed{color:#ff9990!important}tr.last-date .limit-match{color:#91e4b8!important}
 
 .workbook-tabs{display:flex;gap:3px;flex-wrap:wrap;margin:0 0 12px}.workbook-tabs a{padding:10px 18px;background:#e1e9f0;color:#17365d;text-decoration:none;border:1px solid #b9c7d5;border-radius:4px 4px 0 0}.workbook-tabs a.active{background:white;border-bottom:3px solid #17875b;font-weight:bold}.duplicate td{background:#ffe0dc!important;color:#9b2017!important}.linked-grid{min-height:340px}.linked-grid table{min-width:100%}.linked-grid td{height:38px}.linked-grid th{min-width:110px}.sheet-date{margin-left:auto}@media print{.workbook-tabs{display:none}}
+
+#ledger td[data-col]:focus{outline:2px solid #217346;outline-offset:-2px;}

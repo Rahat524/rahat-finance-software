@@ -305,6 +305,29 @@ def register_hc_ledger(app, db, require_permission, audit):
                 elif action=="settings":
                     document["opening"]=number(payload["opening"]);document["limit"]=number(payload["limit"])
                     if document["limit"]<0:raise ValueError("Approved limit cannot be negative")
+                elif action=="paste":
+                    blocks=payload['rows'];cols=payload['cols']
+                    if not isinstance(blocks,list) or not 1<=len(blocks)<=1000:raise ValueError('Paste between 1 and 1,000 rows')
+                    if not isinstance(cols,list) or not cols or len(cols)>20 or any(type(c)!=int or not 0<=c<20 for c in cols) or len(set(cols))!=len(cols):raise ValueError('Invalid paste columns')
+                    targets=payload['targets']
+                    if not isinstance(targets,list) or len(targets)!=len(blocks) or len(set(targets))!=len(targets):raise ValueError('Invalid paste rows')
+                    for target,values in zip(targets,blocks):
+                        if type(target)!=int or not 0<=target<=len(document['rows']) or target>=9995:raise ValueError('Invalid paste row')
+                        if not isinstance(values,list) or len(values)!=len(cols):raise ValueError('Pasted columns do not match')
+                        candidate=document['rows'][target].copy() if target<len(document['rows']) else ['']*20
+                        for col,value in zip(cols,values):
+                            if col not in INPUTS:continue
+                            if col==6 and isinstance(value,str):
+                                value=value.strip()
+                                if value.startswith('-'):value=value[1:]
+                                elif value.startswith('(') and value.endswith(')'):value=value[1:-1]
+                            candidate[col]=value
+                        candidate=sanitize_row(candidate)
+                        if target==0 and (number(candidate[5]) or number(candidate[6])):raise ValueError('The first row is reserved for the opening balance')
+                        if (3 in cols or 4 in cols or target==len(document['rows'])) and candidate[4] and candidate[4] not in document['offsets'].get(candidate[3],[]):raise ValueError('Select an offset account from the chosen Payment or Receipt list')
+                        if (candidate[3]=='Payment' and number(candidate[5])) or (candidate[3]=='Receipt' and number(candidate[6])):raise ValueError('Enter the amount on the selected Payment or Receipt side')
+                        if target==len(document['rows']):document['rows'].append(candidate)
+                        else:document['rows'][target]=candidate
                 elif action=="cell":
                     index=int(payload["row"]);col=int(payload["col"])
                     if not 0<=index<len(document["rows"]) or col not in INPUTS:raise ValueError("This cell is calculated or does not exist")

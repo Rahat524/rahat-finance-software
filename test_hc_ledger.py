@@ -62,6 +62,22 @@ class HCLedgerTests(unittest.TestCase):
         self.assertEqual(sheet['F7'].value,2000)
         self.assertEqual(sheet['G8'].value,120)
 
+    def test_atomic_paste_and_calculated_cell_protection(self):
+        self.upload();s=self.state()
+        def paste(rows,targets,cols,revision=None):
+            return self.client.patch('/api/hc-workbook',json={'action':'paste','rows':rows,'targets':targets,'cols':cols,'revision':self.state()['revision'] if revision is None else revision},headers={'X-HC-CSRF':s['csrf']})
+        self.assertEqual(paste([['2,991,000.00','',999999]],[1],[5,6,7]).status_code,200)
+        self.assertEqual(self.state()['rows'][1][5],2991000)
+        self.assertEqual(self.state()['rows'][1][7],2992050)
+        self.assertEqual(paste([['','-120.00']],[2],[5,6]).status_code,200)
+        self.assertEqual(self.state()['rows'][2][6],120)
+        revision=self.state()['revision']
+        self.assertEqual(paste([[25],['invalid']],[1,2],[5]).status_code,400)
+        self.assertEqual(self.state()['revision'],revision)
+        self.assertEqual(self.state()['rows'][1][5],2991000)
+        self.assertEqual(paste([[30]],[1],[5],revision-1).status_code,409)
+        self.assertEqual(paste([[1]],[0],[5]).status_code,400)
+
     def test_edit_updates_balance_and_rejects_stale_save(self):
         self.upload();state=self.state()
         payload={"action":"cell","revision":1,"row":1,"col":5,"value":"2,500"}
