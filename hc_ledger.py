@@ -159,6 +159,8 @@ def export_excel(document, original, template):
     for rr,label in [(2,'Unclaimed Salary Received'),(3,'Unclaimed Salary Deposited'),(4,'Unclaimed Salary Remaining')]:
         sheet.cell(rr,17,label)
         if f'Q{rr}:S{rr}' not in sheet.merged_cells:sheet.merge_cells(f'Q{rr}:S{rr}')
+        sheet.cell(rr,17)._style=copy.copy(sheet.cell(rr,7)._style)
+        sheet.cell(rr,20)._style=copy.copy(sheet.cell(rr,8)._style)
         sheet.cell(rr,20).number_format='#,##0.00'
     sheet["H4"]=f'=ROUND(E3+H3+T2-E4-SUMIFS(G6:G{end},E6:E{end},"*DEPOSIT*",E6:E{end},"<>DEPOSIT - BANK ALFALAH 66",C6:C{end},"*UNCL*"),2)' 
     computed=calculate(document)
@@ -169,7 +171,7 @@ def export_excel(document, original, template):
             if col in (0,1) and value: value=datetime.strptime(value,"%Y-%m-%d")
             cell=sheet.cell(r,col+1);cell.value=value if value!="" else None
             if isinstance(value,str): cell.data_type="s"
-            if col in (0,1):cell.number_format="dd-mmm-yy"
+            if col in (0,1) and (not original or r>old_end):cell.number_format="dd-mmm-yy"
         sheet.cell(r,8,"=ROUND($B$3,2)" if index==0 else f'=ROUND(H{r-1}+IF(OR(COUNTIF(E{r},"*THEFT CASH*")>0,COUNTIF(E{r},"*LOST & FOUND*")>0,COUNTIF(E{r},"*DEPOSIT - BANK ALFALAH 66*")>0),0,F{r}-G{r}),2)')
         sheet.cell(r,9,f'=IF(ROUND(H{r},2)>ROUND($B$2,2),"Limit Exceed",IF(ROUND(H{r},2)=ROUND($B$2,2),"Limit Match","Below Limit"))')
         sheet.cell(r,18,f'=IF(AND(OR(E{r}="DEPOSIT - BANK ALFALAH 40",E{r}="DEPOSIT - BANK ALFALAH 940"),COUNTIF(C{r},"*UNCL*")=0),SUMIFS(F6:F{end},A6:A{end},A{r},C6:C{end},"*Collection*")+SUMIFS(F6:F{end},A6:A{end},A{r},C6:C{end},"*Till Closing*")-SUMIFS(G6:G{end},A6:A{end},A{r},E6:E{end},"*CASH TRNSFR H.C TO P.C*")-SUMIFS(G6:G{end},A6:A{end},A{r},E6:E{end},"*RETURN POS*")-SUMIFS(G6:G{end},A6:A{end},A{r},E6:E{end},"SALARIES PAYABLE")-SUMIFS(G6:G{end},A6:A{end},A{r},E6:E{end},"ADVANCE SALARY PAYABLE")-SUMIFS(G6:G{end},A6:A{end},A{r},E6:E{end},"FINAL SETTLEMENT PAYABLE"),"")')
@@ -185,14 +187,15 @@ def export_excel(document, original, template):
                 if c in (6,7,8,18,19): cell.number_format='#,##0.00;[Red](#,##0.00);"-"'
     for rr in range(6,max(end,old_end)+1):sheet.cell(rr,7).number_format='"-"#,##0.00;"-"#,##0.00;0.00'
     export_aux(book,document,number)
-    for col in range(1,21):
-        letter=get_column_letter(col)
-        sheet.column_dimensions[letter].width=template["widths"][col-1]/7
-        sheet.column_dimensions[letter].hidden=col-1 in template["hidden"]
-        sheet.cell(5,col).fill=PatternFill("solid",fgColor="234668");sheet.cell(5,col).font=Font(name="Trebuchet MS",color="FFFFFF",bold=True,size=9)
-        sheet.cell(5,col).alignment=Alignment(wrap_text=True)
-    sheet.freeze_panes="F6";sheet.auto_filter.ref=f"A5:T{end}"
-    sheet.protection.sheet=False
+    if not original:
+        for col in range(1,21):
+            letter=get_column_letter(col)
+            sheet.column_dimensions[letter].width=template["widths"][col-1]/7
+            sheet.column_dimensions[letter].hidden=col-1 in template["hidden"]
+            sheet.cell(5,col).fill=PatternFill("solid",fgColor="234668");sheet.cell(5,col).font=Font(name="Trebuchet MS",color="FFFFFF",bold=True,size=9)
+            sheet.cell(5,col).alignment=Alignment(wrap_text=True)
+        sheet.freeze_panes="F6"
+    sheet.auto_filter.ref=f"A5:T{end}"
     from openpyxl.workbook.properties import CalcProperties
     book.calculation=CalcProperties(fullCalcOnLoad=True)
     out=io.BytesIO();book.save(out);out.seek(0);return out
@@ -211,7 +214,7 @@ def register_hc_ledger(app, db, require_permission, audit):
         conn.commit();return conn
     @lru_cache(maxsize=2)
     def legacy_sheets(raw):
-        book=load_workbook(io.BytesIO(raw));doc=import_excel(raw);book.close();return doc['sheets']
+        return import_excel(raw)['sheets']
     def state(conn):
         row=conn.execute("SELECT * FROM hc_workbook WHERE id=1").fetchone()
         if row:

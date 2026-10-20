@@ -85,6 +85,24 @@ class CompletionTests(HCLedgerTests):
   self.assertEqual(r.status_code,200)
   self.assertEqual(self.state()['summary']['closing'],2930)
   self.assertEqual(self.state()['revision'],3)
+ def test_export_preserves_original_design_and_other_sheet(self):
+  from openpyxl.styles import Font,PatternFill
+  b=load_workbook(io.BytesIO(self.raw));s=b['Ledger HC']
+  s.column_dimensions['C'].width=71;s.column_dimensions['J'].hidden=False
+  s['C5'].font=Font(name='Arial',size=14,bold=True,color='FF00AA')
+  s['C5'].fill=PatternFill('solid',fgColor='BBCCDD');s['A7'].number_format='d-mmm-yyyy'
+  s.freeze_panes='C6';s.sheet_view.zoomScale=85;s.protection.sheet=True
+  b['Deposit']['B1']='Unrelated value retained'
+  output=io.BytesIO();b.save(output);self.raw=output.getvalue();self.upload()
+  result=load_workbook(io.BytesIO(self.client.get('/api/hc-workbook/export').data));out=result['Ledger HC']
+  self.assertEqual(out.column_dimensions['C'].width,71)
+  self.assertFalse(out.column_dimensions['J'].hidden)
+  self.assertEqual(copy.copy(out['C5'].font),copy.copy(s['C5'].font))
+  self.assertEqual(copy.copy(out['C5'].fill),copy.copy(s['C5'].fill))
+  self.assertEqual(out['A7'].number_format,'d-mmm-yyyy')
+  self.assertEqual(out.freeze_panes,'C6');self.assertEqual(out.sheet_view.zoomScale,85)
+  self.assertTrue(out.protection.sheet)
+  self.assertEqual(result['Deposit']['B1'].value,'Unrelated value retained')
  def test_fractional_limit_match(self):
   doc=import_excel(self.raw);doc['opening']=5700000.0-0.1-0.2;doc['limit']=5700000;doc['rows'][1][5]=0.3;doc['rows'][2][6]=''
   self.assertEqual(calculate(doc)['rows'][1][8],'Limit Match')

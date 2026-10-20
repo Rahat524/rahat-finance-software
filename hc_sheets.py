@@ -3,6 +3,7 @@ import copy, io, re
 from datetime import date, datetime
 from collections import Counter
 from openpyxl import load_workbook
+from openpyxl.formula.translate import Translator
 from openpyxl.styles import PatternFill, Font
 from openpyxl.formatting.rule import FormulaRule
 
@@ -177,13 +178,17 @@ def export_aux(book,document,number):
   s['J1']='Unclaimed Amount Total';s['L1']=f'=SUMIF(J3:J{end},"Un-paid",H3:H{end})'
   s.column_dimensions['Q'].hidden=True
   s.conditional_formatting.add(f'A3:P{max(3000,end)}',FormulaRule(formula=['$P3="DUPLICATE"'],fill=PatternFill('solid',fgColor='FFE0DC'),font=Font(color='9B2017')))
+  narration_template=s['N3'].value if s['N3'].data_type=='f' else None
   for i,r in enumerate(result['rows'],3):
-   for col,v in enumerate(r[:15],1):
+   native={c:s.cell(i,c).value for c in (14,15) if s.cell(i,c).data_type=='f'}
+   for col,v in enumerate(r[:13],1):
     if col in (9,11) and v:v=datetime.fromisoformat(v)
     c=s.cell(i,col);c.value=v if v!='' else None
     if isinstance(v,str):c.data_type='s'
     if col in (9,11):c.number_format='dd-mmm-yy'
     if col==8:c.number_format='#,##0.00'
+   s.cell(i,14,native.get(14) or (Translator(narration_template,origin='N3').translate_formula('N'+str(i)) if narration_template else r[13]))
+   s.cell(i,15,native.get(15) or f'=IF(N{i}="","",LEN(N{i}))')
    s.cell(i,17,f'=IF(OR(A{i}="",E{i}="",I{i}="",H{i}=""),"",A{i}&"|"&UPPER(TRIM(E{i}))&"|"&TEXT(IF(OR(ISNUMBER(SEARCH("FINAL",E{i})),ISNUMBER(SEARCH("ADVANCE",E{i})),DAY(I{i})>15),I{i},EDATE(I{i},-1)),"yyyymm")&"|"&TEXT(H{i},"0.00"))')
    s.cell(i,16,f'=IF(Q{i}="","",IF(COUNTIF($Q$3:Q{i},Q{i})>1,"DUPLICATE","OK"))')
  if 'DataSheet' not in book:book.create_sheet('DataSheet')
